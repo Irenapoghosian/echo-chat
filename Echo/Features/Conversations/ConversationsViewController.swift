@@ -6,12 +6,14 @@ final class ConversationsViewController: UITableViewController {
     private typealias DataSource = UITableViewDiffableDataSource<Int, ConversationRow.ID>
 
     private let viewModel: ConversationsViewModel
+    private let appearance: AppearanceStore
     private var rowsByID: [ConversationRow.ID: ConversationRow] = [:]
     private var cancellables = Set<AnyCancellable>()
     private lazy var dataSource = makeDataSource()
 
-    init(viewModel: ConversationsViewModel) {
+    init(viewModel: ConversationsViewModel, appearance: AppearanceStore) {
         self.viewModel = viewModel
+        self.appearance = appearance
         super.init(style: .plain)
     }
 
@@ -24,6 +26,12 @@ final class ConversationsViewController: UITableViewController {
         super.viewDidLoad()
         title = "Chats"
         navigationItem.largeTitleDisplayMode = .always
+        let settings = UIBarButtonItem(
+            image: UIImage(systemName: "gearshape"),
+            primaryAction: UIAction { [weak self] _ in self?.showSettings() }
+        )
+        settings.accessibilityLabel = "Settings"
+        navigationItem.rightBarButtonItem = settings
         tableView.register(ConversationCell.self, forCellReuseIdentifier: ConversationCell.reuseID)
         tableView.dataSource = dataSource
 
@@ -53,6 +61,11 @@ final class ConversationsViewController: UITableViewController {
         // Same row, new preview or time: redraw it in place.
         snapshot.reconfigureItems(changed)
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
+    }
+
+    private func showSettings() {
+        let settings = UINavigationController(rootViewController: SettingsViewController(appearance: appearance))
+        present(settings, animated: true)
     }
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {

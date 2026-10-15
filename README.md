@@ -27,6 +27,7 @@
 - **Text and photo bubbles** — blue on the right for you, gray on the left for them. Photos are picked with `PHPickerViewController` and open full screen with pinch and double-tap zoom.
 - **A real composer** — the input bar is the screen's `inputAccessoryView`: it stays at the bottom, rides up with the keyboard, grows with the text up to five lines, and can be dismissed interactively by dragging the chat.
 - **"typing…"** — the contact's status in the navigation bar switches to "typing…" while a reply is on its way.
+- **Appearance setting** — the ⚙️ button opens Settings, where you pick System, Light or Dark. The choice is saved and applied to the whole window, sheets and the photo viewer included.
 - **Dark Mode and Dynamic Type** — semantic colors everywhere and fonts that scale with the user's text size. VoiceOver reads each bubble as "Arsen, 14:05, Ready for the release?".
 
 Replies come from a local `ReplyService`, so the app works without a backend. Swapping in a real server only means another implementation of that protocol.
@@ -76,11 +77,12 @@ Press **⌘R** to run, or **⌘U** to run the tests.
 
 ## Testing
 
-**21 unit tests**, run on every push by GitHub Actions together with SwiftLint in strict mode. The coverage badge counts logic files only; UIKit views and controllers are checked by running the app.
+**24 unit tests**, run on every push by GitHub Actions together with SwiftLint in strict mode. The coverage badge counts logic files only; UIKit views and controllers are checked by running the app.
 
 - `MessageGroupingTests` — grouping by day, "Today" / "Yesterday" / date titles.
 - `ChatFormatTests` — times, list timestamps, previews, VoiceOver labels, initials, photo proportions.
 - `ChatStoreTests` — sending, the typing state and the reply, photo replies.
+- `AppearanceTests` — the default, saving and applying the choice.
 - `ViewModelTests` — trimming and blank messages, day sections, list order, "typing…" previews.
 
 ## Author

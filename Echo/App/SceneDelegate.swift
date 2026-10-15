@@ -8,7 +8,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let store = ChatStore(conversations: SampleData.conversations(), replies: CannedReplyService())
-        let chats = ConversationsViewController(viewModel: ConversationsViewModel(store: store))
+        // Light or Dark from Settings is set on the window, so every screen and sheet follows it.
+        let appearance = AppearanceStore { [weak windowScene] style in
+            windowScene?.windows.forEach { $0.overrideUserInterfaceStyle = style }
+        }
+        let chats = ConversationsViewController(viewModel: ConversationsViewModel(store: store), appearance: appearance)
         let navigation = UINavigationController(rootViewController: chats)
         navigation.navigationBar.prefersLargeTitles = true
 
@@ -16,5 +20,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = navigation
         window.makeKeyAndVisible()
         self.window = window
+        appearance.applySaved()
     }
 }
