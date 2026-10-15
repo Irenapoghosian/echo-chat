@@ -32,7 +32,7 @@
 
 ## Demo
 
-<!-- Drag echo-demo.mp4 here in the GitHub editor; GitHub turns it into a video player. -->
+https://github.com/user-attachments/assets/f65c5e89-d404-4d15-ad16-960d98dea843
 
 ## Features
 
