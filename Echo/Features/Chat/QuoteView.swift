@@ -6,6 +6,7 @@ final class QuoteView: UIView {
     private let bar = UIView()
     private let authorLabel = UILabel()
     private let summaryLabel = UILabel()
+    private var barColor: UIColor = .tintColor
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -42,8 +43,14 @@ final class QuoteView: UIView {
     func configure(author: String, summary: String, onBlue: Bool = false) {
         authorLabel.text = author
         summaryLabel.text = summary
-        bar.backgroundColor = onBlue ? .white : .tintColor
+        barColor = onBlue ? .white : .tintColor
+        bar.backgroundColor = barColor
         authorLabel.textColor = onBlue ? .white : .tintColor
         summaryLabel.textColor = onBlue ? UIColor.white.withAlphaComponent(0.85) : .secondaryLabel
+    }
+
+    /// Puts the bar's color back after a cell highlight cleared it.
+    func restoreColors() {
+        bar.backgroundColor = barColor
     }
 }

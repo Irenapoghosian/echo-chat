@@ -16,6 +16,11 @@ final class MessageCell: UITableViewCell {
     private lazy var photoWidth = photoView.widthAnchor.constraint(equalToConstant: Self.photoSide)
     private lazy var photoHeight = photoView.heightAnchor.constraint(equalToConstant: 200)
     private var onPhotoTap: ((UIImage) -> Void)?
+    /// Kept so it can be restored: UIKit clears subview backgrounds while a cell is
+    /// highlighted, which happens when the message menu opens.
+    private var bubbleColor: UIColor = .clear {
+        didSet { bubble.backgroundColor = bubbleColor }
+    }
 
     static let photoSide: CGFloat = 220
 
@@ -34,6 +39,18 @@ final class MessageCell: UITableViewCell {
 
     /// The bubble alone, lifted out of the list when the message menu opens.
     var bubbleView: UIView { bubble }
+
+    override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+        super.setHighlighted(highlighted, animated: animated)
+        bubble.backgroundColor = bubbleColor
+        quoteView.restoreColors()
+    }
+
+    override func setSelected(_ selected: Bool, animated: Bool) {
+        super.setSelected(selected, animated: animated)
+        bubble.backgroundColor = bubbleColor
+        quoteView.restoreColors()
+    }
 
     override func prepareForReuse() {
         super.prepareForReuse()
@@ -76,7 +93,7 @@ final class MessageCell: UITableViewCell {
         photoView.isHidden = true
         NSLayoutConstraint.deactivate([photoWidth, photoHeight])
         stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
-        bubble.backgroundColor = isMe ? Theme.outgoingBubble : Theme.incomingBubble
+        bubbleColor = isMe ? Theme.outgoingBubble : Theme.incomingBubble
         messageLabel.textColor = isMe ? Theme.outgoingText : Theme.incomingText
         accessibilityTraits = .staticText
         accessibilityHint = nil
@@ -92,10 +109,10 @@ final class MessageCell: UITableViewCell {
         if hasQuote {
             // A replied photo keeps its bubble, so the quote has something to sit on.
             stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
-            bubble.backgroundColor = isMe ? Theme.outgoingBubble : Theme.incomingBubble
+            bubbleColor = isMe ? Theme.outgoingBubble : Theme.incomingBubble
         } else {
             stack.directionalLayoutMargins = .zero
-            bubble.backgroundColor = .clear
+            bubbleColor = .clear
         }
         accessibilityTraits = [.image, .button]
         accessibilityHint = "Opens the photo full screen"

@@ -53,6 +53,13 @@ final class ChatViewController: UIViewController {
         becomeFirstResponder()
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        // Takes the keyboard and composer down with the screen when going back.
+        view.endEditing(true)
+        resignFirstResponder()
+    }
+
     // MARK: - Setup
 
     private func configureTable() {
