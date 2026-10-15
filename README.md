@@ -20,6 +20,20 @@
 
 ---
 
+<p align="center">
+  <img src="docs/screenshots/hero.png" alt="Echo on iPhone: the chat list, replying to a message, the typing bubble in Dark Mode, and Settings">
+</p>
+
+## Screenshots
+
+| Chats | Reply | Typing · Dark | Settings |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/screenshots/chats.png" width="200"> | <img src="docs/screenshots/reply.png" width="200"> | <img src="docs/screenshots/dark-chat.png" width="200"> | <img src="docs/screenshots/settings-dark.png" width="200"> |
+
+## Demo
+
+<!-- Drag echo-demo.mp4 here in the GitHub editor; GitHub turns it into a video player. -->
+
 ## Features
 
 - **Chat list** — every conversation with an avatar, a preview ("You: See you at 12!", "📷 Photo") and a time. The list re-sorts with an animation when a new message arrives, and shows "typing…" live.

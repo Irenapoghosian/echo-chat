@@ -206,11 +206,13 @@ final class ChatViewController: UIViewController {
 
 extension ChatViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        // The typing bubble's section has no day, so no pill.
         guard
             let day = dataSource.sectionIdentifier(for: section),
+            let title = viewModel.title(forSectionOn: day),
             let header = tableView.dequeueReusableHeaderFooterView(withIdentifier: DayHeaderView.reuseID) as? DayHeaderView
         else { return nil }
-        header.configure(title: viewModel.title(forSectionOn: day) ?? "")
+        header.configure(title: title)
         return header
     }
 
