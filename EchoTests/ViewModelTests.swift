@@ -44,6 +44,43 @@ final class ChatViewModelTests: XCTestCase {
         XCTAssertEqual(model.sections.first?.messages.count, 2)
     }
 
+    func testReplyingQuotesTheOriginalAndThenClears() {
+        let original = Fixtures.text("Ready for the release?")
+        let (model, _) = makeModel(messages: [original])
+
+        model.startReply(to: original.id)
+        XCTAssertEqual(model.replyingTo, original)
+
+        model.send(text: "Almost!")
+        XCTAssertNil(model.replyingTo)
+        XCTAssertEqual(model.sections.last?.messages.last?.replyTo, original.quote)
+    }
+
+    func testCancellingAReplySendsAPlainMessage() {
+        let original = Fixtures.text("Hi")
+        let (model, _) = makeModel(messages: [original])
+
+        model.startReply(to: original.id)
+        model.cancelReply()
+        model.send(text: "Hello")
+
+        XCTAssertNil(model.sections.last?.messages.last?.replyTo)
+    }
+
+    func testDeletingRemovesTheMessageAndAnyReplyToIt() {
+        let message = Fixtures.text("Oops")
+        let (model, _) = makeModel(messages: [message])
+        model.startReply(to: message.id)
+
+        model.delete(message.id)
+
+        XCTAssertNil(model.replyingTo)
+        XCTAssertNil(model.message(with: message.id))
+        XCTAssertTrue(model.sections.isEmpty)
+        XCTAssertEqual(model.author(of: .currentUser), "You")
+        XCTAssertEqual(model.author(of: .contact), Fixtures.contact.name)
+    }
+
     func testPhotosAreSent() {
         let (model, _) = makeModel()
         model.send(image: UIImage())

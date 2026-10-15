@@ -6,6 +6,7 @@ final class MessageCell: UITableViewCell {
 
     private let bubble = UIView()
     private let stack = UIStackView()
+    private let quoteView = QuoteView()
     private let messageLabel = UILabel()
     private let photoView = UIImageView()
     private let timeLabel = UILabel()
@@ -31,6 +32,9 @@ final class MessageCell: UITableViewCell {
         fatalError("init(coder:) is not supported")
     }
 
+    /// The bubble alone, lifted out of the list when the message menu opens.
+    var bubbleView: UIView { bubble }
+
     override func prepareForReuse() {
         super.prepareForReuse()
         photoView.image = nil
@@ -49,30 +53,53 @@ final class MessageCell: UITableViewCell {
         timeLabel.text = ChatFormat.time(message.sentAt)
         accessibilityLabel = ChatFormat.accessibilityLabel(for: message, contactName: contactName)
 
+        if let quote = message.replyTo {
+            quoteView.configure(
+                author: ChatFormat.author(of: quote.sender, contactName: contactName),
+                summary: quote.summary,
+                onBlue: isMe
+            )
+        }
+        quoteView.isHidden = message.replyTo == nil
+
         switch message.content {
         case .text(let text):
-            messageLabel.text = text
-            messageLabel.isHidden = false
-            photoView.isHidden = true
-            NSLayoutConstraint.deactivate([photoWidth, photoHeight])
-            stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
-            bubble.backgroundColor = isMe ? Theme.outgoingBubble : Theme.incomingBubble
-            messageLabel.textColor = isMe ? Theme.outgoingText : Theme.incomingText
-            accessibilityTraits = .staticText
-            accessibilityHint = nil
-            self.onPhotoTap = nil
+            showText(text, isMe: isMe)
         case .image(let attachment):
-            photoView.image = attachment.image
-            messageLabel.isHidden = true
-            photoView.isHidden = false
-            photoHeight.constant = Self.photoHeight(fitting: attachment.image.size)
-            NSLayoutConstraint.activate([photoWidth, photoHeight])
+            showPhoto(attachment.image, isMe: isMe, hasQuote: message.replyTo != nil, onTap: onPhotoTap)
+        }
+    }
+
+    private func showText(_ text: String, isMe: Bool) {
+        messageLabel.text = text
+        messageLabel.isHidden = false
+        photoView.isHidden = true
+        NSLayoutConstraint.deactivate([photoWidth, photoHeight])
+        stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        bubble.backgroundColor = isMe ? Theme.outgoingBubble : Theme.incomingBubble
+        messageLabel.textColor = isMe ? Theme.outgoingText : Theme.incomingText
+        accessibilityTraits = .staticText
+        accessibilityHint = nil
+        onPhotoTap = nil
+    }
+
+    private func showPhoto(_ image: UIImage, isMe: Bool, hasQuote: Bool, onTap: @escaping (UIImage) -> Void) {
+        photoView.image = image
+        messageLabel.isHidden = true
+        photoView.isHidden = false
+        photoHeight.constant = Self.photoHeight(fitting: image.size)
+        NSLayoutConstraint.activate([photoWidth, photoHeight])
+        if hasQuote {
+            // A replied photo keeps its bubble, so the quote has something to sit on.
+            stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+            bubble.backgroundColor = isMe ? Theme.outgoingBubble : Theme.incomingBubble
+        } else {
             stack.directionalLayoutMargins = .zero
             bubble.backgroundColor = .clear
-            accessibilityTraits = [.image, .button]
-            accessibilityHint = "Opens the photo full screen"
-            self.onPhotoTap = onPhotoTap
         }
+        accessibilityTraits = [.image, .button]
+        accessibilityHint = "Opens the photo full screen"
+        onPhotoTap = onTap
     }
 
     /// Keeps tall and wide photos within sensible proportions.
@@ -103,7 +130,9 @@ final class MessageCell: UITableViewCell {
         timeLabel.textColor = .secondaryLabel
 
         stack.axis = .vertical
+        stack.spacing = 6
         stack.isLayoutMarginsRelativeArrangement = true
+        stack.addArrangedSubview(quoteView)
         stack.addArrangedSubview(messageLabel)
         stack.addArrangedSubview(photoView)
 

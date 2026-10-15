@@ -3,13 +3,18 @@ import UIKit
 protocol ChatInputBarDelegate: AnyObject {
     func inputBar(_ inputBar: ChatInputBar, didSend text: String)
     func inputBarDidTapPhoto(_ inputBar: ChatInputBar)
+    func inputBarDidCancelReply(_ inputBar: ChatInputBar)
 }
 
 /// The composer, used as the chat's `inputAccessoryView`: it rides on top of the keyboard,
-/// grows with the text up to five lines, then scrolls.
+/// grows with the text up to five lines, then scrolls. While replying, the quote sits above it.
 final class ChatInputBar: UIView {
     weak var delegate: ChatInputBarDelegate?
 
+    private let replyQuote = QuoteView()
+    private let cancelReplyButton = UIButton(type: .system)
+    private lazy var replyBanner = UIStackView(arrangedSubviews: [replyQuote, cancelReplyButton])
+    private let inputRow = UIView()
     private let textView = UITextView()
     private let placeholder = UILabel()
     private let photoButton = UIButton(type: .system)
@@ -33,6 +38,24 @@ final class ChatInputBar: UIView {
     }
 
     override var intrinsicContentSize: CGSize { .zero }
+
+    // MARK: - Replying
+
+    func showReply(author: String, summary: String) {
+        replyQuote.configure(author: author, summary: summary)
+        replyQuote.accessibilityLabel = "Replying to \(author): \(summary)"
+        replyBanner.isHidden = false
+    }
+
+    func hideReply() {
+        replyBanner.isHidden = true
+    }
+
+    func focus() {
+        textView.becomeFirstResponder()
+    }
+
+    // MARK: - Setup
 
     private func configureViews() {
         let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
@@ -66,13 +89,31 @@ final class ChatInputBar: UIView {
         placeholder.adjustsFontForContentSizeCategory = true
         placeholder.textColor = .placeholderText
         placeholder.isAccessibilityElement = false
+
+        cancelReplyButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        cancelReplyButton.tintColor = .secondaryLabel
+        cancelReplyButton.accessibilityLabel = "Cancel reply"
+        cancelReplyButton.addTarget(self, action: #selector(cancelReplyTapped), for: .touchUpInside)
+        cancelReplyButton.setContentHuggingPriority(.required, for: .horizontal)
+        replyQuote.isAccessibilityElement = true
+        replyBanner.spacing = 8
+        replyBanner.alignment = .center
+        replyBanner.isLayoutMarginsRelativeArrangement = true
+        replyBanner.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 2, leading: 10, bottom: 4, trailing: 4)
+        replyBanner.isHidden = true
     }
 
     private func configureLayout() {
         [photoButton, textView, sendButton, placeholder].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
-            addSubview($0)
+            inputRow.addSubview($0)
         }
+        let column = UIStackView(arrangedSubviews: [replyBanner, inputRow])
+        column.axis = .vertical
+        column.spacing = 4
+        column.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(column)
+
         let separator = UIView()
         separator.backgroundColor = .separator
         separator.translatesAutoresizingMaskIntoConstraints = false
@@ -84,18 +125,28 @@ final class ChatInputBar: UIView {
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
             separator.heightAnchor.constraint(equalToConstant: 0.5),
 
-            textView.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            textView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            column.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            column.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            column.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 8),
+            column.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
+        ])
+        layoutInputRow()
+    }
+
+    private func layoutInputRow() {
+        NSLayoutConstraint.activate([
+            textView.topAnchor.constraint(equalTo: inputRow.topAnchor),
+            textView.bottomAnchor.constraint(equalTo: inputRow.bottomAnchor),
             textView.leadingAnchor.constraint(equalTo: photoButton.trailingAnchor, constant: 6),
             textView.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -6),
             textView.heightAnchor.constraint(greaterThanOrEqualToConstant: 36),
 
-            photoButton.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 8),
+            photoButton.leadingAnchor.constraint(equalTo: inputRow.leadingAnchor),
             photoButton.bottomAnchor.constraint(equalTo: textView.bottomAnchor),
             photoButton.widthAnchor.constraint(equalToConstant: 36),
             photoButton.heightAnchor.constraint(equalToConstant: 36),
 
-            sendButton.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
+            sendButton.trailingAnchor.constraint(equalTo: inputRow.trailingAnchor),
             sendButton.bottomAnchor.constraint(equalTo: textView.bottomAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 36),
             sendButton.heightAnchor.constraint(equalToConstant: 36),
@@ -132,6 +183,10 @@ final class ChatInputBar: UIView {
 
     @objc private func photoTapped() {
         delegate?.inputBarDidTapPhoto(self)
+    }
+
+    @objc private func cancelReplyTapped() {
+        delegate?.inputBarDidCancelReply(self)
     }
 }
 

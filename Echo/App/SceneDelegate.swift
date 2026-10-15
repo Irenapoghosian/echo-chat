@@ -7,7 +7,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        let store = ChatStore(conversations: SampleData.conversations(), replies: CannedReplyService())
+        // Saved chats survive relaunches. If the database can't open, the app still runs in memory.
+        let persistence = try? CoreDataChatPersistence()
+        let store = ChatStore(
+            conversations: ChatBootstrap.conversations(from: persistence),
+            replies: CannedReplyService(),
+            persistence: persistence
+        )
         // Light or Dark from Settings is set on the window, so every screen and sheet follows it.
         let appearance = AppearanceStore { [weak windowScene] style in
             windowScene?.windows.forEach { $0.overrideUserInterfaceStyle = style }

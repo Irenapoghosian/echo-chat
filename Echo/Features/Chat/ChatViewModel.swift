@@ -6,6 +6,8 @@ import UIKit
 final class ChatViewModel {
     @Published private(set) var sections: [MessageSection] = []
     @Published private(set) var isContactTyping = false
+    /// The message the next one will answer, shown above the composer.
+    @Published private(set) var replyingTo: Message?
 
     let contact: Contact
     private let conversationID: Conversation.ID
@@ -42,17 +44,43 @@ final class ChatViewModel {
         sections.first { $0.day == day }?.title
     }
 
-    /// Sends trimmed text; blank messages are ignored.
+    /// "You" or the contact's name, for quotes.
+    func author(of sender: Sender) -> String {
+        ChatFormat.author(of: sender, contactName: contact.name)
+    }
+
+    // MARK: - Actions
+
+    /// Sends trimmed text, as a reply when one is in progress; blank messages are ignored.
     @discardableResult
     func send(text: String) -> Task<Void, Never>? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return store.send(.text(trimmed), in: conversationID)
+        return send(.text(trimmed))
     }
 
     @discardableResult
     func send(image: UIImage) -> Task<Void, Never>? {
-        store.send(.image(ImageAttachment(image: image)), in: conversationID)
+        send(.image(ImageAttachment(image: image)))
+    }
+
+    func startReply(to id: Message.ID) {
+        replyingTo = messagesByID[id]
+    }
+
+    func cancelReply() {
+        replyingTo = nil
+    }
+
+    func delete(_ id: Message.ID) {
+        if replyingTo?.id == id { replyingTo = nil }
+        store.deleteMessage(id, in: conversationID)
+    }
+
+    private func send(_ content: MessageContent) -> Task<Void, Never>? {
+        let original = replyingTo
+        replyingTo = nil
+        return store.send(content, replyingTo: original, in: conversationID)
     }
 
     private func apply(_ messages: [Message]) {

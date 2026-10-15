@@ -39,6 +39,16 @@ final class ChatFormatTests: XCTestCase {
         XCTAssertEqual(label, "Arsen, 14:05, Ready?")
     }
 
+    func testRepliesAreReadWithTheirQuote() {
+        let original = Fixtures.text("Ready?")
+        let reply = Message(sender: .currentUser, content: .text("Yes!"), sentAt: Fixtures.now, replyTo: original.quote)
+
+        let label = ChatFormat.accessibilityLabel(for: reply, contactName: "Arsen", locale: Fixtures.locale, timeZone: utc)
+
+        XCTAssertEqual(label, "You, 14:05, Yes!, in reply to Arsen: Ready?")
+        XCTAssertEqual(ChatFormat.summary(of: .image(ImageAttachment(image: UIImage()))), "📷 Photo")
+    }
+
     func testInitials() {
         XCTAssertEqual(Contact(name: "Arsen Petrosyan", colorIndex: 0).initials, "AP")
         XCTAssertEqual(Contact(name: "anna", colorIndex: 0).initials, "A")

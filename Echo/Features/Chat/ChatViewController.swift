@@ -3,10 +3,15 @@ import PhotosUI
 import UIKit
 
 /// One conversation: messages grouped by day, the composer riding on the keyboard,
-/// "typing…" in the title, and photos that open full screen.
+/// "typing…" in the title and as a bubble, a Reply / Copy / Delete menu, and photos
+/// that open full screen.
 final class ChatViewController: UIViewController {
     private typealias DataSource = UITableViewDiffableDataSource<Date, Message.ID>
     private typealias Snapshot = NSDiffableDataSourceSnapshot<Date, Message.ID>
+
+    /// The typing bubble lives in its own last section, under an ID no message can have.
+    private static let typingSection = Date.distantFuture
+    private static let typingItem = UUID()
 
     private let viewModel: ChatViewModel
     private let tableView = UITableView(frame: .zero, style: .plain)
@@ -52,6 +57,7 @@ final class ChatViewController: UIViewController {
 
     private func configureTable() {
         tableView.register(MessageCell.self, forCellReuseIdentifier: MessageCell.reuseID)
+        tableView.register(TypingIndicatorCell.self, forCellReuseIdentifier: TypingIndicatorCell.reuseID)
         tableView.register(DayHeaderView.self, forHeaderFooterViewReuseIdentifier: DayHeaderView.reuseID)
         tableView.separatorStyle = .none
         tableView.allowsSelection = false
@@ -71,7 +77,19 @@ final class ChatViewController: UIViewController {
 
     private func bind() {
         viewModel.$sections
-            .sink { [weak self] sections in self?.render(sections) }
+            .combineLatest(viewModel.$isContactTyping)
+            .sink { [weak self] sections, isTyping in self?.render(sections, isTyping: isTyping) }
+            .store(in: &cancellables)
+
+        viewModel.$replyingTo
+            .sink { [weak self] message in
+                guard let self else { return }
+                if let message {
+                    inputBar.showReply(author: viewModel.author(of: message.sender), summary: message.quote.summary)
+                } else {
+                    inputBar.hideReply()
+                }
+            }
             .store(in: &cancellables)
 
         viewModel.$isContactTyping
@@ -89,6 +107,11 @@ final class ChatViewController: UIViewController {
 
     private func makeDataSource() -> DataSource {
         DataSource(tableView: tableView) { [weak self] tableView, indexPath, id in
+            if id == Self.typingItem {
+                let cell = tableView.dequeueReusableCell(withIdentifier: TypingIndicatorCell.reuseID, for: indexPath)
+                (cell as? TypingIndicatorCell)?.configure(name: self?.viewModel.contact.name ?? "")
+                return cell
+            }
             guard
                 let self,
                 let message = viewModel.message(with: id),
@@ -103,11 +126,15 @@ final class ChatViewController: UIViewController {
 
     // MARK: - Updates
 
-    private func render(_ sections: [MessageSection]) {
+    private func render(_ sections: [MessageSection], isTyping: Bool) {
         var snapshot = Snapshot()
         for section in sections {
             snapshot.appendSections([section.day])
             snapshot.appendItems(section.messages.map(\.id), toSection: section.day)
+        }
+        if isTyping {
+            snapshot.appendSections([Self.typingSection])
+            snapshot.appendItems([Self.typingItem], toSection: Self.typingSection)
         }
         let isFirstLoad = dataSource.snapshot().numberOfItems == 0
         dataSource.apply(snapshot, animatingDifferences: !isFirstLoad) { [weak self] in
@@ -135,9 +162,40 @@ final class ChatViewController: UIViewController {
     private func showPhoto(_ image: UIImage) {
         present(ImageViewerController(image: image), animated: true)
     }
+
+    // MARK: - Message menu
+
+    private func menu(for message: Message) -> UIMenu {
+        let reply = UIAction(title: "Reply", image: UIImage(systemName: "arrowshape.turn.up.left")) { [weak self] _ in
+            self?.viewModel.startReply(to: message.id)
+            self?.inputBar.focus()
+        }
+        let copy = UIAction(title: "Copy", image: UIImage(systemName: "doc.on.doc")) { _ in
+            switch message.content {
+            case .text(let text): UIPasteboard.general.string = text
+            case .image(let attachment): UIPasteboard.general.image = attachment.image
+            }
+        }
+        let delete = UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
+            self?.viewModel.delete(message.id)
+        }
+        return UIMenu(children: [reply, copy, delete])
+    }
+
+    /// Lifts just the bubble, with its rounded shape, instead of the whole row.
+    private func bubblePreview(for configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
+        guard
+            let indexPath = configuration.identifier as? IndexPath,
+            let cell = tableView.cellForRow(at: indexPath) as? MessageCell
+        else { return nil }
+        let parameters = UIPreviewParameters()
+        parameters.backgroundColor = .clear
+        parameters.visiblePath = UIBezierPath(roundedRect: cell.bubbleView.bounds, cornerRadius: Theme.bubbleRadius)
+        return UITargetedPreview(view: cell.bubbleView, parameters: parameters)
+    }
 }
 
-// MARK: - Day headers
+// MARK: - Day headers and the message menu
 
 extension ChatViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
@@ -148,6 +206,38 @@ extension ChatViewController: UITableViewDelegate {
         header.configure(title: viewModel.title(forSectionOn: day) ?? "")
         return header
     }
+
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        dataSource.sectionIdentifier(for: section) == Self.typingSection ? 0 : UITableView.automaticDimension
+    }
+
+    func tableView(
+        _ tableView: UITableView,
+        contextMenuConfigurationForRowAt indexPath: IndexPath,
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard
+            let id = dataSource.itemIdentifier(for: indexPath),
+            let message = viewModel.message(with: id)
+        else { return nil }
+        return UIContextMenuConfiguration(identifier: indexPath as NSIndexPath, previewProvider: nil) { [weak self] _ in
+            self?.menu(for: message)
+        }
+    }
+
+    func tableView(
+        _ tableView: UITableView,
+        previewForHighlightingContextMenuWithConfiguration configuration: UIContextMenuConfiguration
+    ) -> UITargetedPreview? {
+        bubblePreview(for: configuration)
+    }
+
+    func tableView(
+        _ tableView: UITableView,
+        previewForDismissingContextMenuWithConfiguration configuration: UIContextMenuConfiguration
+    ) -> UITargetedPreview? {
+        bubblePreview(for: configuration)
+    }
 }
 
 // MARK: - Sending
@@ -155,6 +245,10 @@ extension ChatViewController: UITableViewDelegate {
 extension ChatViewController: ChatInputBarDelegate {
     func inputBar(_ inputBar: ChatInputBar, didSend text: String) {
         viewModel.send(text: text)
+    }
+
+    func inputBarDidCancelReply(_ inputBar: ChatInputBar) {
+        viewModel.cancelReply()
     }
 
     func inputBarDidTapPhoto(_ inputBar: ChatInputBar) {

@@ -24,15 +24,24 @@ enum ChatFormat {
         return date.formatted(Date.FormatStyle(date: .numeric, time: .omitted, locale: locale, timeZone: calendar.timeZone))
     }
 
+    /// A message in a few words: its text, or "📷 Photo".
+    static func summary(of content: MessageContent) -> String {
+        switch content {
+        case .text(let text): text
+        case .image: "📷 Photo"
+        }
+    }
+
     /// The second line in the chat list: "You: See you at 12!", "📷 Photo".
     static func preview(of message: Message?) -> String {
         guard let message else { return "No messages yet" }
-        let body: String
-        switch message.content {
-        case .text(let text): body = text
-        case .image: body = "📷 Photo"
-        }
+        let body = summary(of: message.content)
         return message.isFromMe ? "You: \(body)" : body
+    }
+
+    /// Who wrote a message, as shown in a quote: "You" or the contact's name.
+    static func author(of sender: Sender, contactName: String) -> String {
+        sender == .currentUser ? "You" : contactName
     }
 
     /// What VoiceOver reads for a bubble: "You, 14:05, See you at 12!".
@@ -42,12 +51,16 @@ enum ChatFormat {
         locale: Locale = .current,
         timeZone: TimeZone = .current
     ) -> String {
-        let who = message.isFromMe ? "You" : contactName
+        let who = author(of: message.sender, contactName: contactName)
         let what: String
         switch message.content {
         case .text(let text): what = text
         case .image: what = "Photo"
         }
-        return "\(who), \(time(message.sentAt, locale: locale, timeZone: timeZone)), \(what)"
+        var label = "\(who), \(time(message.sentAt, locale: locale, timeZone: timeZone)), \(what)"
+        if let quote = message.replyTo {
+            label += ", in reply to \(author(of: quote.sender, contactName: contactName)): \(quote.summary)"
+        }
+        return label
     }
 }
